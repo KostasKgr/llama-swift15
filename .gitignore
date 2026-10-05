@@ -1,0 +1,17 @@
+# Downloaded model weights and partial downloads
+/models/
+*.part
+HANDOFF.md
+
+# Prebuilt executables, CUDA libraries, archives, and download metadata
+/llama.cpp-runtime/
+/downloads/
+
+# Local measurements, server logs, and process IDs
+/logs/
+*.log
+*.pid
+
+# Python bytecode
+__pycache__/
+*.py[cod]
