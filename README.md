@@ -2,7 +2,7 @@
 
 Run Swift 1.5 Qwen3.8-27B GSQ-RCO IQ3_S with its embedded MTP head, a
 131,072-token context, and an OpenAI-compatible API at `http://127.0.0.1:1235/v1`.
-Everything lives under `~/ai/llama-swift15/` in WSL.
+Everything lives under `/projects/inference/llama-swift15/` in WSL.
 
 The tested setup is Ubuntu 24.04.3 WSL2, an RTX 5090 Laptop GPU with 24 GB VRAM,
 Windows driver 592.27, and the official llama.cpp **b11393 CUDA 12.8** prebuilt.
@@ -22,7 +22,7 @@ are already present.
 
 ```bash
 set -euo pipefail
-ROOT="$HOME/ai/llama-swift15"
+ROOT="/projects/inference/llama-swift15"
 mkdir -p "$ROOT/downloads" "$ROOT/llama.cpp-runtime"
 cd "$ROOT/downloads"
 
@@ -65,7 +65,7 @@ No `.ninfer` artifact, separate draft model, or conversion is required.
 
 ```bash
 set -euo pipefail
-ROOT="$HOME/ai/llama-swift15"
+ROOT="/projects/inference/llama-swift15"
 FILE="Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf"
 REV="d74895bbe5db4bec1e0024e7cc87d59c02d7631a"
 SOURCE="https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/resolve/$REV"
@@ -98,8 +98,8 @@ Ensure port 1235 is free and GPU memory is available. From WSL:
 
 ```bash
 nvidia-smi
-chmod +x ~/ai/llama-swift15/start_swift15_iq3s_128k.sh
-~/ai/llama-swift15/start_swift15_iq3s_128k.sh
+chmod +x /projects/inference/llama-swift15/start_swift15_iq3s_128k.sh
+/projects/inference/llama-swift15/start_swift15_iq3s_128k.sh
 ```
 
 Leave this terminal open. Stop the server with **Ctrl+C**. If the server from
@@ -119,7 +119,7 @@ uses reclaimable file-backed pages and does not lock the model in RAM;
 and depends on filesystem support. To restore the original loading behavior:
 
 ```bash
-SWIFT_LOAD_MODE=auto ~/ai/llama-swift15/start_swift15_iq3s_128k.sh
+SWIFT_LOAD_MODE=auto /projects/inference/llama-swift15/start_swift15_iq3s_128k.sh
 ```
 
 The launcher requires systemd with cgroup v2 and runs inside the user scope
@@ -147,16 +147,16 @@ using this launcher in the same user manager.
 To save logs while keeping Ctrl+C available:
 
 ```bash
-mkdir -p ~/ai/llama-swift15/logs
-~/ai/llama-swift15/start_swift15_iq3s_128k.sh 2>&1 \
-  | tee ~/ai/llama-swift15/logs/server.log
+mkdir -p /projects/inference/llama-swift15/logs
+/projects/inference/llama-swift15/start_swift15_iq3s_128k.sh 2>&1 \
+  | tee /projects/inference/llama-swift15/logs/server.log
 ```
 
 If 128K fails because of VRAM allocation, keep IQ3_S and `q8_0` K/V and try
 contexts of 114688, 98304, then 81920. For example:
 
 ```bash
-SWIFT_CONTEXT=114688 ~/ai/llama-swift15/start_swift15_iq3s_128k.sh
+SWIFT_CONTEXT=114688 /projects/inference/llama-swift15/start_swift15_iq3s_128k.sh
 ```
 
 ## Check the API and use OpenCode
@@ -191,6 +191,35 @@ The server must be running before OpenCode sends requests. The OpenCode config
 is separate from this repository and is not installed by these commands.
 
 ## Optional probes
+
+See [PREFILL_REPORT.md](PREFILL_REPORT.md) for the measured 50K-token batch sweep
+and matched MTP-disabled result.
+
+For a WSL2-only cold-prefill sweep, stop the existing server and run:
+
+```bash
+python3 prefill_benchmark.py
+```
+
+This runs three fresh-process trials for each stable batch/microbatch pair:
+2048/512, 4096/1024, 4096/2048, and 8192/2048. It then runs three MTP-disabled
+trials at the fastest stable pair. Every request uses the same frozen 50,000
+token IDs from varied synthetic Python modules, disables prompt reuse, and
+generates one output token. This is a throughput probe, not a production trace
+or quality evaluation. The harness verifies full prompt evaluation and zero
+cached tokens, records server timings and health, samples whole-GPU VRAM,
+temperature and power approximately every 200 ms plus query overhead, and
+records available scope memory statistics. Peaks are sampled, not allocator
+telemetry. The production launcher preserves its context, KV, loading and
+host-memory limits. All trial servers are stopped afterward.
+
+Timestamped `logs/prefill-*` folders contain the prompt and checksum, launcher
+snapshot, GPU CSVs, server logs, responses, results and summary. Failed trials
+are retained and excluded from speed comparisons. Use `--repeats 1` for a
+screening run. The launcher also accepts `SWIFT_BATCH`, `SWIFT_UBATCH`, and
+`SWIFT_SPEC_TYPE` overrides; defaults remain 2048, 512, and `draft-mtp`.
+For just one matched MTP-disabled check, use `--mtp-only --repeats 1 --batch 4096
+--ubatch 1024 --prompt-tokens logs/<previous-run>/prompt-tokens.json`.
 
 With the server running, `python3 benchmark.py` measures synthetic short, 8K,
 and 32K prompts and saves results under `logs/`. Repetitive prompts can produce
