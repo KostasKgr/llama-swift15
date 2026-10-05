@@ -122,6 +122,28 @@ and depends on filesystem support. To restore the original loading behavior:
 SWIFT_LOAD_MODE=auto ~/ai/llama-swift15/start_swift15_iq3s_128k.sh
 ```
 
+The launcher requires systemd with cgroup v2 and runs inside the user scope
+`swift15.scope`. Host memory has a 6 GiB reclaim/throttling threshold, an
+8 GiB hard ceiling, and no swap allowance. If reclaim cannot keep usage under
+the hard ceiling, the kernel can kill the server in this scope. GPU VRAM is
+not covered by these limits.
+
+The server retains at most two context checkpoints per slot and limits its
+separate RAM prompt cache to 512 MiB (`--ctx-checkpoints 2 --cache-ram 512`).
+Fewer checkpoints can require more prompt reprocessing; the 128K context
+capacity stays the same. Cache settings do not cap total server RAM.
+
+Inspect the running scope with:
+
+```bash
+systemctl --user show swift15.scope \
+  -p MemoryCurrent -p MemoryHigh -p MemoryMax -p MemorySwapMax
+```
+
+These settings apply on the next launch. Stop the existing server with Ctrl+C
+before starting again. The fixed scope name prevents simultaneous launches
+using this launcher in the same user manager.
+
 To save logs while keeping Ctrl+C available:
 
 ```bash
