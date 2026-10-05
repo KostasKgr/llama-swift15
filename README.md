@@ -110,6 +110,18 @@ chat templates, native MTP with up to three draft tokens, and a 131,072-token
 context. Main K/V cache uses `q8_0`; the MTP draft cache uses upstream F16 defaults.
 Its model ID is `swift-1.5-qwen3.8-27b-iq3s-mtp`. It binds only to `127.0.0.1`.
 
+The launcher defaults to `--load-mode dio` (Direct I/O where supported) to
+avoid filling WSL's filesystem page cache with the model during loading.
+It still needs RAM for CPU tensors, metadata, and staging buffers; this does
+not eliminate RAM use or guarantee against OOM. The previous default, `mmap`,
+uses reclaimable file-backed pages and does not lock the model in RAM;
+`mlock` is the mode that forces residency. Direct I/O may change loading speed
+and depends on filesystem support. To restore the original loading behavior:
+
+```bash
+SWIFT_LOAD_MODE=auto ~/ai/llama-swift15/start_swift15_iq3s_128k.sh
+```
+
 To save logs while keeping Ctrl+C available:
 
 ```bash
